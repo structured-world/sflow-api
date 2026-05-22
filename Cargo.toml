@@ -1,0 +1,26 @@
+[package]
+name = "sflow-api"
+description = "SFLOW embedding contract — stable traits + wire types for the structured.flow workflow engine. The Apache-2.0 boundary between proprietary sflow-engine and consumer products."
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/structured-world/sflow-api"
+homepage = "https://structured.flow"
+documentation = "https://docs.rs/sflow-api"
+keywords = ["workflow", "statechart", "saga", "embedding", "xstate"]
+categories = ["asynchronous", "api-bindings"]
+readme = "README.md"
+
+[dependencies]
+async-trait = "0.1"
+bitflags = "2"
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+uuid = { version = "1", features = ["v4", "v7", "serde"] }
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
