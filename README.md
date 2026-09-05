@@ -7,7 +7,7 @@ This crate contains only stable trait contracts and wire types. No implementatio
 | | |
 | --- | --- |
 | **License** | MIT OR Apache-2.0 (your choice) |
-| **MSRV** | 1.80 |
+| **MSRV** | 1.85 |
 | **Engine** | proprietary, binary distribution at [structured.flow/releases](https://structured.flow) |
 
 ## What this crate gives you
