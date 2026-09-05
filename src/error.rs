@@ -5,60 +5,127 @@ use std::collections::HashMap;
 /// SFLOW error type — maps to google.rpc.Status + ErrorInfo.
 #[derive(Debug, thiserror::Error)]
 pub enum SflowError {
+    /// No workflow instance exists with the given id.
     #[error("instance not found: {instance_id}")]
-    InstanceNotFound { instance_id: String },
+    InstanceNotFound {
+        /// Requested instance id.
+        instance_id: String,
+    },
 
+    /// No workflow definition exists with the given id.
     #[error("definition not found: {definition_id}")]
-    DefinitionNotFound { definition_id: String },
+    DefinitionNotFound {
+        /// Requested definition id.
+        definition_id: String,
+    },
 
+    /// The namespace is unknown to the engine.
     #[error("namespace not found: {namespace}")]
-    NamespaceNotFound { namespace: String },
+    NamespaceNotFound {
+        /// Requested namespace name.
+        namespace: String,
+    },
 
+    /// The statechart definition failed validation.
     #[error("invalid statechart: {reason}")]
-    InvalidStatechart { reason: String },
+    InvalidStatechart {
+        /// Validation failure description.
+        reason: String,
+    },
 
+    /// A transition guard could not be evaluated.
     #[error("guard evaluation failed: {expression}")]
-    GuardEvaluationFailed { expression: String },
+    GuardEvaluationFailed {
+        /// Guard expression that failed.
+        expression: String,
+    },
 
+    /// The instance is suspended and rejects events.
     #[error("instance is suspended: {instance_id}")]
-    InstanceSuspended { instance_id: String },
+    InstanceSuspended {
+        /// Suspended instance id.
+        instance_id: String,
+    },
 
+    /// The instance already reached a final state.
     #[error("instance already completed: {instance_id}")]
-    InstanceCompleted { instance_id: String },
+    InstanceCompleted {
+        /// Completed instance id.
+        instance_id: String,
+    },
 
+    /// A namespace or tenant quota was exceeded.
     #[error("quota exceeded: {detail}")]
-    QuotaExceeded { detail: String },
+    QuotaExceeded {
+        /// Which quota was exceeded.
+        detail: String,
+    },
 
+    /// The migration plan cannot be applied to the instance.
     #[error("migration incompatible: {reason}")]
-    MigrationIncompatible { reason: String },
+    MigrationIncompatible {
+        /// Incompatibility description.
+        reason: String,
+    },
 
+    /// Optimistic concurrency check failed on the instance.
     #[error("concurrent modification on instance: {instance_id}")]
-    ConcurrentModification { instance_id: String },
+    ConcurrentModification {
+        /// Instance that was modified concurrently.
+        instance_id: String,
+    },
 
+    /// A cluster node required for the operation is unreachable.
     #[error("node unavailable: {node_id}")]
-    NodeUnavailable { node_id: String },
+    NodeUnavailable {
+        /// Unreachable node id.
+        node_id: String,
+    },
 
+    /// An invoked block returned an error.
     #[error("block execution failed: {block_id}: {reason}")]
-    BlockExecutionFailed { block_id: String, reason: String },
+    BlockExecutionFailed {
+        /// Failing block id.
+        block_id: String,
+        /// Failure description reported by the block.
+        reason: String,
+    },
 
+    /// A CEL expression failed to parse or type-check.
     #[error("invalid CEL expression: {expression}: {reason}")]
-    InvalidCelExpression { expression: String, reason: String },
+    InvalidCelExpression {
+        /// Offending expression.
+        expression: String,
+        /// Parser or checker diagnostic.
+        reason: String,
+    },
 
+    /// The persistence backend returned an error.
     #[error("persistence error: {0}")]
     Persistence(String),
 
+    /// The event transport returned an error.
     #[error("transport error: {0}")]
     Transport(String),
 
+    /// The caller could not be authenticated.
     #[error("authentication error: {0}")]
     Authentication(String),
 
+    /// The caller is authenticated but not allowed to perform the action.
     #[error("authorization denied: {0}")]
     AuthorizationDenied(String),
 
+    /// An external service invoked by the workflow failed.
     #[error("external service error ({service}): {message}")]
-    ExternalServiceError { service: String, message: String },
+    ExternalServiceError {
+        /// Name of the external service.
+        service: String,
+        /// Error message returned by the service.
+        message: String,
+    },
 
+    /// Unexpected engine failure not covered by another variant.
     #[error("internal error: {0}")]
     Internal(String),
 }

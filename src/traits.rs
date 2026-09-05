@@ -43,11 +43,7 @@ pub trait WorkflowEngine: Send + Sync {
     ) -> Result<Vec<ActorAddress>, SflowError>;
 
     /// Query workflow state (read-only, no state change).
-    async fn query(
-        &self,
-        target: &ActorAddress,
-        query: &str,
-    ) -> Result<Value, SflowError>;
+    async fn query(&self, target: &ActorAddress, query: &str) -> Result<Value, SflowError>;
 
     /// Update — send event and wait for transition result (sync).
     async fn update(
@@ -81,11 +77,7 @@ pub trait WorkflowEngine: Send + Sync {
     async fn delete(&self, target: &ActorAddress) -> Result<(), SflowError>;
 
     /// Migrate an instance to a new definition version.
-    async fn migrate(
-        &self,
-        target: &ActorAddress,
-        plan: &MigrationPlan,
-    ) -> Result<(), SflowError>;
+    async fn migrate(&self, target: &ActorAddress, plan: &MigrationPlan) -> Result<(), SflowError>;
 
     /// Search workflow instances by attributes.
     async fn search(
@@ -95,10 +87,7 @@ pub trait WorkflowEngine: Send + Sync {
     ) -> Result<Vec<WorkflowSummary>, SflowError>;
 
     /// Get full instance state.
-    async fn get_state(
-        &self,
-        target: &ActorAddress,
-    ) -> Result<WorkflowInstance, SflowError>;
+    async fn get_state(&self, target: &ActorAddress) -> Result<WorkflowInstance, SflowError>;
 }
 
 // ---------------------------------------------------------------------------
@@ -121,30 +110,16 @@ pub trait WorkflowBackend: Send + Sync {
     ) -> Result<Uuid, SflowError>;
 
     /// Send an event to a workflow instance.
-    async fn send_event(
-        &self,
-        instance_id: &Uuid,
-        event: WorkflowEvent,
-    ) -> Result<(), SflowError>;
+    async fn send_event(&self, instance_id: &Uuid, event: WorkflowEvent) -> Result<(), SflowError>;
 
     /// Query workflow state (read-only).
-    async fn query(
-        &self,
-        instance_id: &Uuid,
-    ) -> Result<WorkflowInstance, SflowError>;
+    async fn query(&self, instance_id: &Uuid) -> Result<WorkflowInstance, SflowError>;
 
     /// Send a signal (broadcast) to matching workflows.
-    async fn signal(
-        &self,
-        ns: &NamespaceId,
-        signal: &str,
-    ) -> Result<u32, SflowError>;
+    async fn signal(&self, ns: &NamespaceId, signal: &str) -> Result<u32, SflowError>;
 
     /// Cancel a workflow instance.
-    async fn cancel(
-        &self,
-        instance_id: &Uuid,
-    ) -> Result<(), SflowError>;
+    async fn cancel(&self, instance_id: &Uuid) -> Result<(), SflowError>;
 
     /// List workflow instances in a namespace.
     async fn list(
@@ -177,11 +152,7 @@ pub trait WorkflowBackendExt: WorkflowBackend {
     async fn resume(&self, instance_id: &Uuid) -> Result<(), SflowError>;
 
     /// Migrate instance to new definition version.
-    async fn migrate(
-        &self,
-        instance_id: &Uuid,
-        plan: &MigrationPlan,
-    ) -> Result<(), SflowError>;
+    async fn migrate(&self, instance_id: &Uuid, plan: &MigrationPlan) -> Result<(), SflowError>;
 
     /// Search by attributes.
     async fn search(
@@ -191,10 +162,7 @@ pub trait WorkflowBackendExt: WorkflowBackend {
     ) -> Result<Vec<WorkflowSummary>, SflowError>;
 
     /// Get full instance state including history.
-    async fn get_state(
-        &self,
-        instance_id: &Uuid,
-    ) -> Result<WorkflowInstance, SflowError>;
+    async fn get_state(&self, instance_id: &Uuid) -> Result<WorkflowInstance, SflowError>;
 }
 
 // ---------------------------------------------------------------------------
@@ -220,11 +188,8 @@ pub trait PersistenceBackend: Send + Sync {
     async fn append_event(&self, id: &Uuid, event: &EventRecord) -> Result<(), SflowError>;
 
     /// Load event history after a given sequence number.
-    async fn load_history(
-        &self,
-        id: &Uuid,
-        after_seq: u64,
-    ) -> Result<Vec<EventRecord>, SflowError>;
+    async fn load_history(&self, id: &Uuid, after_seq: u64)
+        -> Result<Vec<EventRecord>, SflowError>;
 
     /// Search workflow instances.
     async fn search(
@@ -265,7 +230,10 @@ pub enum TimerClaimResult {
     /// Timer claimed successfully — this node should fire it.
     Claimed,
     /// Timer already claimed by another node.
-    AlreadyClaimed { owner: String },
+    AlreadyClaimed {
+        /// Node id that holds the claim.
+        owner: String,
+    },
     /// Timer no longer exists (fired or cancelled).
     NotFound,
 }
@@ -291,10 +259,8 @@ pub trait ConsensusBackend: Send + Sync {
     /// Read the current state of a workflow instance.
     ///
     /// Returns the instance with its current version for use in proposals.
-    async fn read(
-        &self,
-        instance_id: &Uuid,
-    ) -> Result<Option<(WorkflowInstance, u64)>, SflowError>;
+    async fn read(&self, instance_id: &Uuid)
+        -> Result<Option<(WorkflowInstance, u64)>, SflowError>;
 
     /// Claim a timer for firing (distributed coordination).
     ///
@@ -307,11 +273,7 @@ pub trait ConsensusBackend: Send + Sync {
     ) -> Result<TimerClaimResult, SflowError>;
 
     /// Release a claimed timer (e.g., on graceful shutdown).
-    async fn release_timer(
-        &self,
-        timer_id: &str,
-        node_id: &str,
-    ) -> Result<(), SflowError>;
+    async fn release_timer(&self, timer_id: &str, node_id: &str) -> Result<(), SflowError>;
 
     /// List timers due for firing (before `before` timestamp).
     async fn list_due_timers(
@@ -324,9 +286,13 @@ pub trait ConsensusBackend: Send + Sync {
 /// A timer that is due for firing.
 #[derive(Debug, Clone)]
 pub struct DueTimer {
+    /// Timer identifier used for claim and release.
     pub timer_id: String,
+    /// Instance the timer belongs to.
     pub instance_id: Uuid,
+    /// Namespace of the instance.
     pub namespace: String,
+    /// Scheduled firing time.
     pub fire_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -369,10 +335,7 @@ pub trait EventTransport: Send + Sync {
     async fn publish(&self, subject: &str, data: &[u8]) -> Result<(), SflowError>;
 
     /// Subscribe to a subject/topic. Returns a stream of messages.
-    async fn subscribe(
-        &self,
-        subject: &str,
-    ) -> Result<Box<dyn EventStream>, SflowError>;
+    async fn subscribe(&self, subject: &str) -> Result<Box<dyn EventStream>, SflowError>;
 }
 
 /// Stream of incoming event messages.
@@ -385,7 +348,9 @@ pub trait EventStream: Send {
 /// An incoming event message from the transport layer.
 #[derive(Debug, Clone)]
 pub struct EventMessage {
+    /// Subject or topic the message arrived on.
     pub subject: String,
+    /// Raw message payload.
     pub data: Vec<u8>,
 }
 
@@ -466,24 +431,33 @@ pub trait AuditSink: Send + Sync {
 /// Information about an AI model.
 #[derive(Debug, Clone)]
 pub struct AiModelInfo {
+    /// Provider name (e.g. "openai", "anthropic").
     pub provider: String,
+    /// Provider-specific model identifier.
     pub model_id: String,
+    /// Maximum tokens the model accepts per request.
     pub max_tokens: usize,
+    /// Whether the model can be forced to emit JSON.
     pub supports_json_mode: bool,
 }
 
 /// A message in a chat conversation.
 #[derive(Debug, Clone)]
 pub struct AiMessage {
+    /// Who authored the message.
     pub role: AiRole,
+    /// Message text.
     pub content: String,
 }
 
 /// Role in an AI conversation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AiRole {
+    /// System prompt.
     System,
+    /// Human turn.
     User,
+    /// Model turn.
     Assistant,
 }
 
@@ -494,11 +468,8 @@ pub enum AiRole {
 #[async_trait]
 pub trait AiProvider: Send + Sync {
     /// Complete a chat conversation.
-    async fn complete(
-        &self,
-        messages: &[AiMessage],
-        json_mode: bool,
-    ) -> Result<String, SflowError>;
+    async fn complete(&self, messages: &[AiMessage], json_mode: bool)
+        -> Result<String, SflowError>;
 
     /// Get model information.
     fn model_info(&self) -> AiModelInfo;

@@ -17,6 +17,7 @@ use uuid::Uuid;
 pub struct NamespaceId(pub String);
 
 impl NamespaceId {
+    /// The `default` namespace used when a caller does not specify one.
     pub fn default_namespace() -> Self {
         Self("default".to_string())
     }
@@ -104,14 +105,23 @@ pub struct TransitionResult {
 /// widget updates (dashboard counters, timelines, live state streaming).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StateChangePayload {
+    /// Instance whose state changed.
     pub instance_id: uuid::Uuid,
+    /// Namespace of the instance.
     pub namespace: String,
+    /// Definition the instance runs.
     pub definition_id: String,
+    /// Active states before the transition.
     pub from_states: Vec<StateId>,
+    /// Active states after the transition.
     pub to_states: Vec<StateId>,
+    /// Event type that triggered the transition, if any.
     pub trigger_event: Option<String>,
+    /// Context after the transition.
     pub context: serde_json::Value,
+    /// Lifecycle status after the transition.
     pub status: InstanceStatus,
+    /// When the transition was committed.
     pub timestamp: chrono::DateTime<chrono::Utc>,
 }
 
@@ -150,11 +160,17 @@ pub struct CorrelationKey {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SearchAttrType {
+    /// Exact-match string.
     Keyword,
+    /// Full-text searchable string.
     Text,
+    /// Signed 64-bit integer.
     Int,
+    /// 64-bit float.
     Double,
+    /// UTC timestamp.
     Datetime,
+    /// Boolean flag.
     Bool,
 }
 
@@ -162,11 +178,17 @@ pub enum SearchAttrType {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum SearchAttrValue {
+    /// Exact-match string.
     Keyword(String),
+    /// Full-text searchable string.
     Text(String),
+    /// Signed 64-bit integer.
     Int(i64),
+    /// 64-bit float.
     Double(f64),
+    /// UTC timestamp.
     Datetime(DateTime<Utc>),
+    /// Boolean flag.
     Bool(bool),
 }
 
@@ -188,14 +210,23 @@ pub struct SearchQuery {
 /// Summary of a workflow instance (for search results).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkflowSummary {
+    /// Instance identifier.
     pub instance_id: Uuid,
+    /// Namespace the instance lives in.
     pub namespace: NamespaceId,
+    /// Definition the instance runs.
     pub definition_id: String,
+    /// Definition version the instance runs.
     pub definition_version: String,
+    /// Lifecycle status.
     pub status: InstanceStatus,
+    /// Active states.
     pub current_state: StateConfiguration,
+    /// Indexed search attributes.
     pub search_attributes: HashMap<String, SearchAttrValue>,
+    /// Creation time.
     pub created_at: DateTime<Utc>,
+    /// Last state change time.
     pub updated_at: DateTime<Utc>,
 }
 
@@ -206,22 +237,36 @@ pub struct WorkflowSummary {
 /// A running workflow instance — full state snapshot.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkflowInstance {
+    /// Instance identifier.
     pub instance_id: Uuid,
     /// Optimistic concurrency version (incremented on each state change).
     #[serde(default)]
     pub version: u64,
+    /// Namespace the instance lives in.
     pub namespace: NamespaceId,
+    /// Definition the instance runs.
     pub definition_id: String,
+    /// Definition version the instance runs.
     pub definition_version: String,
+    /// Active states.
     pub current_state: StateConfiguration,
+    /// Workflow context (extended state).
     pub context: serde_json::Value,
+    /// Event history in sequence order.
     pub history: Vec<EventRecord>,
+    /// Indexed search attributes.
     pub search_attributes: HashMap<String, SearchAttrValue>,
+    /// Correlation keys for message routing.
     pub correlation_keys: Vec<CorrelationKey>,
+    /// Creation time.
     pub created_at: DateTime<Utc>,
+    /// Last state change time.
     pub updated_at: DateTime<Utc>,
+    /// Identity that started the instance.
     pub owner: IdentityRef,
+    /// Lifecycle status.
     pub status: InstanceStatus,
+    /// Execution mode of the definition.
     pub mode: WorkflowMode,
     /// History of previously active states per compound state path.
     /// Used by history pseudo-states (shallow/deep) for state restoration.
@@ -321,7 +366,9 @@ pub enum EventRecordType {
 /// Stable across restarts, migrations, scaling.
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ActorAddress {
+    /// Instance that owns the actor tree.
     pub instance_id: Uuid,
+    /// Dot-separated path from the root actor.
     pub actor_path: String,
 }
 
@@ -350,20 +397,15 @@ impl std::fmt::Display for ActorAddress {
 }
 
 /// Message priority for actor delivery.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Priority {
     /// Saga compensation, escalation actions.
     High = -1,
     /// Regular actor messages, state transitions.
+    #[default]
     Normal = 0,
     /// Monitoring, metrics, non-critical notifications.
     Low = 1,
-}
-
-impl Default for Priority {
-    fn default() -> Self {
-        Self::Normal
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -388,7 +430,9 @@ pub struct EscalationRules {
 /// Migration plan for transitioning instances between workflow versions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MigrationPlan {
+    /// Definition version instances are migrated from.
     pub source_version: String,
+    /// Definition version instances are migrated to.
     pub target_version: String,
     /// Old state ID → new state ID mapping.
     pub state_mappings: HashMap<String, String>,
@@ -403,11 +447,17 @@ pub struct MigrationPlan {
 /// Audit entry for state transitions and admin actions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditEntry {
+    /// When the action happened.
     pub timestamp: DateTime<Utc>,
+    /// Namespace of the affected instance.
     pub namespace: NamespaceId,
+    /// Affected instance.
     pub instance_id: Uuid,
+    /// Action name (e.g. "transition", "suspend", "migrate").
     pub action: String,
+    /// Identity that performed the action.
     pub actor: IdentityRef,
+    /// Action-specific details.
     #[serde(default)]
     pub details: serde_json::Value,
 }
@@ -419,8 +469,11 @@ pub struct AuditEntry {
 /// Usage counter for state change metering (standalone mode only).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UsageCounter {
+    /// Period the counter covers.
     pub period: UsagePeriod,
+    /// Number of state changes recorded in the period.
     pub state_changes: u64,
+    /// Node that recorded the counter.
     pub node_id: String,
     /// HMAC signature for integrity verification.
     pub signature: Vec<u8>,
@@ -429,7 +482,9 @@ pub struct UsageCounter {
 /// Usage counting period.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UsagePeriod {
+    /// Calendar year.
     pub year: u16,
+    /// Calendar month (1-12).
     pub month: u8,
 }
 
@@ -449,7 +504,7 @@ pub struct SourceCapabilities {
 }
 
 /// Fork mode — how trigger spawns children.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ForkMode {
     /// Lightweight ephemeral actor within parent (~10μs, zero DB write).
@@ -457,13 +512,8 @@ pub enum ForkMode {
     Actor,
     /// Independent durable workflow instance (~1-5ms with DB write).
     /// Use for complex processing (saga, human task, long-running).
+    #[default]
     Instance,
-}
-
-impl Default for ForkMode {
-    fn default() -> Self {
-        Self::Instance
-    }
 }
 
 /// Window type for stream aggregation.
@@ -488,37 +538,27 @@ pub enum WindowType {
 }
 
 /// Drop policy when buffer overflows on replayable sources.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DropPolicy {
     /// Drop newest items, keep history (default).
+    #[default]
     Newest,
     /// Drop oldest items, keep fresh data.
     Oldest,
 }
 
-impl Default for DropPolicy {
-    fn default() -> Self {
-        Self::Newest
-    }
-}
-
 /// Overflow strategy when buffer is full.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OverflowStrategy {
     /// Pause source consumption (requires back_pressurable source).
+    #[default]
     SlowSource,
     /// Drop items (requires replayable source for safe replay).
     Drop,
     /// Auto-scale processing capacity (EE only, requires clustering).
     Scale,
-}
-
-impl Default for OverflowStrategy {
-    fn default() -> Self {
-        Self::SlowSource
-    }
 }
 
 /// Stream processing configuration — stored in workflow definition context
@@ -585,9 +625,17 @@ pub enum StreamSourceType {
 #[serde(untagged)]
 pub enum StreamOffset {
     /// Kafka-style: partition + offset.
-    Partitioned { partition: u32, offset: u64 },
+    Partitioned {
+        /// Partition number.
+        partition: u32,
+        /// Offset within the partition.
+        offset: u64,
+    },
     /// NATS-style: sequence number.
-    Sequence { seq: u64 },
+    Sequence {
+        /// Stream sequence number.
+        seq: u64,
+    },
     /// Opaque string offset (for custom sources).
     Opaque(String),
 }
@@ -597,21 +645,16 @@ pub enum StreamOffset {
 // ---------------------------------------------------------------------------
 
 /// Task delivery mode — maps to NATS JetStream ack policies.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DeliveryMode {
     /// Fire-and-forget. AckPolicy::None, MaxDeliver: 1.
     AtMostOnce,
     /// Retry until acknowledged. AckPolicy::Explicit (default).
+    #[default]
     AtLeastOnce,
     /// Deduplication + idempotent. Nats-Msg-Id per task assignment.
     ExactlyOnce,
-}
-
-impl Default for DeliveryMode {
-    fn default() -> Self {
-        Self::AtLeastOnce
-    }
 }
 
 /// Task lifecycle status.
@@ -661,7 +704,7 @@ pub enum WorkerCommand {
 }
 
 /// Backoff function type for retry delays.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BackoffFunction {
     /// Constant delay between retries.
@@ -669,6 +712,7 @@ pub enum BackoffFunction {
     /// Delay increases linearly: base * attempt.
     Linear,
     /// Delay doubles each attempt: base * 2^attempt.
+    #[default]
     Exponential,
     /// Delay follows fibonacci sequence: base * fib(attempt).
     Fibonacci,
@@ -676,23 +720,25 @@ pub enum BackoffFunction {
     Custom,
 }
 
-impl Default for BackoffFunction {
-    fn default() -> Self {
-        Self::Exponential
-    }
-}
-
 /// Constraint operator for hard worker matching.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ConstraintOperator {
+    /// Equal.
     Eq,
+    /// Not equal.
     Neq,
+    /// Greater than.
     Gt,
+    /// Greater than or equal.
     Gte,
+    /// Less than.
     Lt,
+    /// Less than or equal.
     Lte,
+    /// Member of a list.
     In,
+    /// Semantic version range match.
     Semver,
 }
 
@@ -993,8 +1039,11 @@ fn default_supervision() -> SupervisionStrategy {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecutionMode {
+    /// Caller blocks until the workflow completes.
     Sync,
+    /// Caller receives an instance id and polls or subscribes.
     Async,
+    /// Workflow emits results continuously.
     Streaming,
 }
 
@@ -1002,8 +1051,11 @@ pub enum ExecutionMode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum IdempotencyMode {
+    /// Every start creates a new instance.
     None,
+    /// Starts with the same key resolve to the same instance.
     ByKey,
+    /// At most one active instance per definition.
     Singleton,
 }
 
@@ -1011,9 +1063,13 @@ pub enum IdempotencyMode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Reversibility {
+    /// No compensation possible.
     Irreversible,
+    /// Every step has a compensating action.
     Compensable,
+    /// Only some steps can be compensated.
     Partial,
+    /// Rollback to the last checkpoint.
     Checkpoint,
 }
 
@@ -1021,9 +1077,13 @@ pub enum Reversibility {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FlowPriority {
+    /// Background work.
     Low,
+    /// Default priority.
     Normal,
+    /// Latency-sensitive work.
     High,
+    /// Must run ahead of everything else.
     Critical,
 }
 
@@ -1031,31 +1091,43 @@ pub enum FlowPriority {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FlowCategory {
+    /// Coordinates several services.
     Orchestration,
+    /// Distributed transaction with compensation.
     Saga,
+    /// Linear data processing.
     Pipeline,
+    /// Reacts to a single event type.
     EventHandler,
+    /// Runs on a schedule.
     Scheduled,
+    /// Consumes a continuous stream.
     Stream,
+    /// Waits on human input.
     HumanTask,
 }
 
 /// Classification metadata attached to a workflow definition.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FlowTraits {
+    /// How the workflow executes tasks.
     #[serde(default = "default_execution_mode")]
     pub execution: ExecutionMode,
+    /// Idempotency enforcement mode.
     #[serde(default = "default_idempotency_mode")]
     pub idempotency: IdempotencyMode,
     /// CEL expression producing idempotency key (when mode = ByKey).
     pub idempotency_key_expr: Option<String>,
+    /// Compensation support.
     #[serde(default = "default_reversibility")]
     pub reversibility: Reversibility,
     /// Delivery guarantee / consistency model.
     #[serde(default)]
     pub consistency: DeliveryMode,
+    /// Execution priority.
     #[serde(default = "default_priority")]
     pub priority: FlowPriority,
+    /// Workflow category.
     #[serde(default = "default_category")]
     pub category: FlowCategory,
 }
@@ -1098,12 +1170,16 @@ pub struct WorkflowSchema {
 /// Retry policy for a pipeline step.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RetryPolicy {
+    /// Maximum retry attempts before the step fails.
     #[serde(default = "default_max_retries")]
     pub max_retries: u32,
+    /// First retry delay as ISO 8601 duration.
     #[serde(default = "default_initial_backoff")]
     pub initial_backoff: String,
+    /// Backoff multiplier applied per attempt.
     #[serde(default = "default_multiplier")]
     pub multiplier: f64,
+    /// Upper bound on the retry delay as ISO 8601 duration.
     pub max_backoff: Option<String>,
 }
 
@@ -1120,10 +1196,14 @@ fn default_multiplier() -> f64 {
 /// A single step in a pipeline.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PipelineStep {
+    /// Step name, unique within the pipeline.
     pub name: String,
+    /// Block invoked by the step.
     pub block_ref: String,
+    /// Block configuration.
     #[serde(default)]
     pub config: serde_json::Value,
+    /// Retry policy for the step.
     pub retry: Option<RetryPolicy>,
     /// Timeout as ISO 8601 duration.
     pub timeout: Option<String>,
@@ -1134,13 +1214,20 @@ pub struct PipelineStep {
 /// A simplified pipeline definition — auto-converts to statechart.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PipelineDefinition {
+    /// Definition id.
     pub id: String,
+    /// Definition version.
     #[serde(default = "default_version")]
     pub version: String,
+    /// Steps in execution order.
     pub steps: Vec<PipelineStep>,
+    /// Block invoked when a step fails after retries.
     pub error_handler: Option<String>,
+    /// I/O and context schemas.
     pub schema: Option<WorkflowSchema>,
+    /// Classification metadata.
     pub traits: Option<FlowTraits>,
+    /// Namespace the definition is registered in.
     pub namespace: Option<String>,
 }
 
@@ -1156,30 +1243,46 @@ fn default_version() -> String {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WizardFieldType {
+    /// Free text.
     String,
+    /// Numeric input.
     Number,
+    /// Toggle.
     Boolean,
+    /// One of a fixed set of options.
     Select,
+    /// Masked input stored as a secret.
     Secret,
+    /// JSON document.
     Json,
+    /// CEL expression.
     Cel,
+    /// Templated string.
     Template,
 }
 
 /// A single field in a wizard step.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WizardField {
+    /// Config key the field writes to.
     pub key: String,
+    /// Human-readable label.
     pub label: String,
+    /// Input type.
     pub field_type: WizardFieldType,
+    /// Whether the field must be filled.
     #[serde(default)]
     pub required: bool,
+    /// Pre-filled value.
     pub default_value: Option<String>,
+    /// Help text shown next to the field.
     pub description: Option<String>,
     /// CEL validation expression.
     pub validation_expr: Option<String>,
+    /// Choices for `Select` fields.
     #[serde(default)]
     pub options: Vec<String>,
+    /// Placeholder shown when empty.
     pub placeholder: Option<String>,
     /// CEL condition for visibility.
     pub visible_when: Option<String>,
@@ -1188,17 +1291,24 @@ pub struct WizardField {
 /// A step/section in a wizard form.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WizardStep {
+    /// Step title.
     pub title: String,
+    /// Step description.
     pub description: Option<String>,
+    /// Fields shown in the step.
     pub fields: Vec<WizardField>,
 }
 
 /// Complete wizard definition for a block's configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WizardDefinition {
+    /// Block the wizard configures.
     pub block_id: String,
+    /// Wizard title.
     pub title: String,
+    /// Wizard description.
     pub description: Option<String>,
+    /// Steps in display order.
     pub steps: Vec<WizardStep>,
 }
 
@@ -1225,6 +1335,7 @@ pub struct WizardBuilder {
 }
 
 impl WizardBuilder {
+    /// Set the wizard description.
     pub fn description(mut self, desc: impl Into<String>) -> Self {
         self.description = Some(desc.into());
         self
@@ -1236,6 +1347,7 @@ impl WizardBuilder {
         self
     }
 
+    /// Finish building the wizard.
     pub fn build(self) -> WizardDefinition {
         WizardDefinition {
             block_id: self.block_id,
@@ -1265,6 +1377,7 @@ pub struct WizardStepBuilder {
 }
 
 impl WizardStepBuilder {
+    /// Set the step description.
     pub fn description(mut self, desc: impl Into<String>) -> Self {
         self.description = Some(desc.into());
         self
@@ -1276,6 +1389,7 @@ impl WizardStepBuilder {
         self
     }
 
+    /// Finish building the step.
     pub fn build(self) -> WizardStep {
         WizardStep {
             title: self.title,
@@ -1358,41 +1472,49 @@ pub struct WizardFieldBuilder {
 }
 
 impl WizardFieldBuilder {
+    /// Mark the field as required.
     pub fn required(mut self) -> Self {
         self.required = true;
         self
     }
 
+    /// Set the pre-filled value.
     pub fn default_value(mut self, val: impl Into<String>) -> Self {
         self.default_value = Some(val.into());
         self
     }
 
+    /// Set the help text.
     pub fn description(mut self, desc: impl Into<String>) -> Self {
         self.description = Some(desc.into());
         self
     }
 
+    /// Set the CEL validation expression.
     pub fn validation(mut self, cel_expr: impl Into<String>) -> Self {
         self.validation_expr = Some(cel_expr.into());
         self
     }
 
+    /// Set the choices for a `Select` field.
     pub fn options(mut self, opts: Vec<String>) -> Self {
         self.options = opts;
         self
     }
 
+    /// Set the placeholder text.
     pub fn placeholder(mut self, text: impl Into<String>) -> Self {
         self.placeholder = Some(text.into());
         self
     }
 
+    /// Set the CEL visibility condition.
     pub fn visible_when(mut self, cel_expr: impl Into<String>) -> Self {
         self.visible_when = Some(cel_expr.into());
         self
     }
 
+    /// Finish building the field.
     pub fn build(self) -> WizardField {
         WizardField {
             key: self.key,
@@ -1478,57 +1600,87 @@ pub struct OutcomeDef {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum WidgetHint {
+    /// Free-text input.
     Text {
+        /// Placeholder shown when empty.
         #[serde(skip_serializing_if = "Option::is_none")]
         placeholder: Option<String>,
+        /// Render as a multi-line editor.
         #[serde(default)]
         multiline: bool,
+        /// Maximum character count.
         #[serde(skip_serializing_if = "Option::is_none")]
         max_length: Option<usize>,
     },
+    /// Numeric input.
     Number {
+        /// Minimum accepted value.
         #[serde(skip_serializing_if = "Option::is_none")]
         min: Option<f64>,
+        /// Maximum accepted value.
         #[serde(skip_serializing_if = "Option::is_none")]
         max: Option<f64>,
+        /// Increment step.
         #[serde(skip_serializing_if = "Option::is_none")]
         step: Option<f64>,
+        /// Render as a slider instead of a text box.
         #[serde(default)]
         slider: bool,
     },
+    /// Toggle.
     Boolean,
+    /// Single choice from a list.
     Select {
+        /// Available choices.
         options: Vec<SelectOption>,
     },
+    /// Multiple choices from a list.
     MultiSelect {
+        /// Available choices.
         options: Vec<SelectOption>,
+        /// Maximum number of selected choices.
         #[serde(skip_serializing_if = "Option::is_none")]
         max: Option<usize>,
     },
+    /// Colour picker.
     Color {
+        /// Output format (e.g. "hex", "rgb").
         #[serde(default = "default_color_format")]
         format: String,
     },
+    /// Code editor.
     Code {
+        /// Syntax highlighting language.
         #[serde(default = "default_code_language")]
         language: String,
     },
+    /// Masked secret input.
     Secret,
+    /// File upload.
     File {
+        /// Accepted MIME types or extensions.
         #[serde(skip_serializing_if = "Option::is_none")]
         accept: Option<String>,
+        /// Maximum file size in megabytes.
         #[serde(skip_serializing_if = "Option::is_none")]
         max_size_mb: Option<u32>,
     },
+    /// URL input.
     Url,
+    /// Cron expression input.
     Cron,
+    /// ISO 8601 duration input.
     Duration {
+        /// Minimum accepted duration.
         #[serde(skip_serializing_if = "Option::is_none")]
         min: Option<String>,
+        /// Maximum accepted duration.
         #[serde(skip_serializing_if = "Option::is_none")]
         max: Option<String>,
     },
+    /// JSON editor.
     Json {
+        /// JSON Schema the value must satisfy.
         #[serde(skip_serializing_if = "Option::is_none")]
         schema: Option<serde_json::Value>,
     },
@@ -1537,7 +1689,9 @@ pub enum WidgetHint {
 /// Option for select/multi_select widgets.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SelectOption {
+    /// Text shown to the user.
     pub label: String,
+    /// Value written to the port.
     pub value: serde_json::Value,
 }
 
@@ -1552,13 +1706,20 @@ fn default_code_language() -> String {
 /// Block metadata with typed ports — returned by Block::metadata().
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockPortMetadata {
+    /// Block identifier.
     pub id: String,
+    /// Human-readable block name.
     pub name: String,
+    /// Block version.
     pub version: String,
+    /// Input port definitions.
     pub inputs: Vec<InputPortDef>,
+    /// Output port definitions.
     pub outputs: Vec<OutputPortDef>,
+    /// Named outcomes the block can finish with.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub outcomes: Vec<OutcomeDef>,
+    /// JSON Schema for the block configuration.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub config_schema: Option<serde_json::Value>,
 }
@@ -1568,18 +1729,22 @@ pub struct BlockPortMetadata {
 pub struct PortValues(pub HashMap<String, serde_json::Value>);
 
 impl PortValues {
+    /// Empty port set.
     pub fn new() -> Self {
         Self(HashMap::new())
     }
 
+    /// Set a port value, replacing any previous value.
     pub fn insert(&mut self, name: impl Into<String>, value: serde_json::Value) {
         self.0.insert(name.into(), value);
     }
 
+    /// Read a port value.
     pub fn get(&self, name: &str) -> Option<&serde_json::Value> {
         self.0.get(name)
     }
 
+    /// Whether a port has a value.
     pub fn contains(&self, name: &str) -> bool {
         self.0.contains_key(name)
     }
@@ -1649,6 +1814,7 @@ pub struct CollectorChannel {
 }
 
 impl CollectorChannel {
+    /// Empty collector.
     pub fn new() -> Self {
         Self {
             outputs: std::sync::Mutex::new(HashMap::new()),
